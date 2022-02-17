@@ -3,137 +3,127 @@ import utils
 import json
 
 
-def prompt_card(cards):
+def prompt_card(flashcards):
     while True:
-        print('The card:')
-        term = input()
-        if term in cards:
-            print(f'The card "{term}" already exists. Try again:')
+        flashcards.print_message('The card:\n')
+        term = flashcards.user_input()
+        if term in flashcards.card_dict:
+            flashcards.print_message(f'The card "{term}" already exists. Try again:\n')
         else:
             break
     while True:
-        print('The definition of the card:')
-        definition = input()
-        if definition in cards.values():
-            print(f'The definition "{definition} already exists. Try again:')
+        flashcards.print_message('The definition of the card:\n')
+        definition = flashcards.user_input()
+        if definition in flashcards.card_dict.values():
+            flashcards.print_message(f'The definition "{definition} already exists. Try again:\n')
         else:
             break
-    print(f'The pair ("{term}":"{definition}") has been added')
+    flashcards.print_message(f'The pair ("{term}":"{definition}") has been added\n')
     return {'term': term, 'definition': definition}
 
 
 def import_cards(file):
     try:
         with open(file, 'r') as handle:
-            cards = json.loads(handle.read())
-        return cards
+            data = json.loads(handle.read())
+        if 'cards' not in data:
+            data = {'cards': data, 'stats': {}}
+        return data
     except OSError:
         return False
 
 
-def export_cards(file, cards):
+def export_cards(file, flashcards):
     try:
+        data = {'cards': {}, 'stats': {}}
+        for card in flashcards.card_dict:
+            data['cards'][card] = flashcards.card_dict[card]
+        for stat in flashcards.stats:
+            data['stats'][stat] = flashcards.stats[stat]
         with open(file, 'w') as handle:
-            handle.write(json.dumps(cards))
+            handle.write(json.dumps(data))
             return True
     except OSError:
         return False
 
 
-def prompt_cards(cards, all_cards):
+def prompt_cards(cards, flashcards):
     for card in cards:
-        print('Print the definition of "{}"'.format(card['term']))
-        user_def = input()
+        flashcards.print_message('Print the definition of "{}"\n'.format(card['term']))
+        user_def = flashcards.user_input()
         if card['definition'] == user_def:
-            print('Correct!')
+            flashcards.print_message('Correct!\n')
         else:
-            print('Wrong. The right answer is "{}"'.format(card['definition']), end='')
+            flashcards.print_message('Wrong. The right answer is "{}"'.format(card['definition']))
+            flashcards.log_incorrect(card['term'])
             alt = False
-            for c in all_cards:
-                if all_cards[c] == user_def:
+            for c in flashcards.card_dict:
+                if flashcards.card_dict[c] == user_def:
                     alt = c
                     break
             if alt:
-                print(', but your definition is correct for: "{}"'.format(alt))
+                flashcards.print_message(', but your definition is correct for: "{}"\n'.format(alt))
             else:
-                print('.')
+                flashcards.print_message('.\n')
 
 
 def main():
     flashcards = Card()
     end = False
     while not end:
-        action = utils.menu()
+        action = utils.menu(flashcards)
         if action == 'exit':
             end = True
         elif action == 'add':
-            card = prompt_card(flashcards.card_dict)
+            card = prompt_card(flashcards)
             flashcards.add_card(card['term'], card['definition'])
         elif action == 'remove':
-            print('Which card?')
-            term = input()
+            flashcards.print_message('Which card?\n')
+            term = flashcards.user_input()
             if term not in flashcards.card_dict:
-                print(f'Can\'t remove "{term}": there is no such card')
+                flashcards.print_message(f'Can\'t remove "{term}": there is no such card\n')
                 continue
             flashcards.delete_card(term)
-            print('The card has been removed.')
+            flashcards.print_message('The card has been removed.\n')
         elif action == 'import':
-            print('File name:')
-            file_name = input()
+            flashcards.print_message('File name:\n')
+            file_name = flashcards.user_input()
             contents = import_cards(file_name)
             if not contents:
-                print('File not found.')
+                flashcards.print_message('File not found.\n')
                 continue
             count = flashcards.load_cards(contents)
-            print(f'{count} cards have been loaded.')
+            flashcards.print_message(f'{count} cards have been loaded.\n')
         elif action == 'export':
-            print('File name:')
-            file_name = input()
-            result = export_cards(file_name, flashcards.card_dict)
+            flashcards.print_message('File name:\n')
+            file_name = flashcards.user_input()
+            result = export_cards(file_name, flashcards)
             if not result:
-                print('Export failed')
+                flashcards.print_message('Export failed\n')
             else:
-                print(f'{len(flashcards.card_dict)} cards have been saved.')
+                flashcards.print_message(f'{len(flashcards.card_dict)} cards have been saved.\n')
         elif action == 'ask':
-            print('How many times to ask?')
-            number = int(input())
-            prompt_cards(flashcards.get_random_cards(number), flashcards.card_dict)
-    print('Bye bye!')
-    '''
-    print('Input the number of cards:')
-    number = int(input())
-    terms = {}
-    definitions = {}
-    for i in range(number):
-        repeat = 1
-        print('The term for card #{}'.format(i + 1))
-        while True:
-            term = input()
-            if term in terms:
-                print('The term "{}" already exists. Try again:'.format(term))
+            flashcards.print_message('How many times to ask?\n')
+            number = int(flashcards.user_input())
+            prompt_cards(flashcards.get_random_cards(number), flashcards)
+        elif action == 'hardest card':
+            cards = flashcards.get_hardest()
+            if not cards:
+                flashcards.print_message('There are no cards with errors\n')
+            elif len(cards['term']) == 1:
+                flashcards.print_message('The hardest card is "{}". You have {} errors answering it\n'.format(cards['term'][0], cards['errors']))
             else:
-                break
-        print('The definition for card #{}'.format(i + 1))
-        while True:
-            definition = input()
-            if definition in definitions:
-                print('The definition "{}" already exists. Try again:'.format(definition))
-            else:
-                break
-        terms[term] = definition
-        definitions[definition] = term
-    for term in terms:
-        print('Print the definition of "{}"'.format(term))
-        user_def = input()
-        if (terms[term] == user_def):
-            print('Correct!')
-        else:
-            print('Wrong. The right answer is "{}"'.format(terms[term]), end='')
-            if user_def in definitions:
-                print(', but your definition is correct for: "{}"'.format(definitions[user_def]))
-            else:
-                print('.')
-    '''
+                terms = '", "'.join(cards['term'])
+                flashcards.print_message(f'The hardest cards are "{terms}"\n')
+        elif action == 'reset stats':
+            flashcards.reset_stats()
+            flashcards.print_message('Card statistics have been reset.\n')
+        elif action == 'log':
+            flashcards.print_message('File name:\n')
+            output_to = flashcards.user_input()
+            flashcards.save_log(output_to)
+            flashcards.print_message('The log has been saved\n')
+    flashcards.print_message('Bye bye!\n')
 
 
 if __name__ == '__main__':
