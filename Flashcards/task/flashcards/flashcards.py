@@ -1,6 +1,7 @@
 from card import Card
 import utils
 import json
+import argparse
 
 
 def prompt_card(flashcards):
@@ -70,6 +71,17 @@ def prompt_cards(cards, flashcards):
 def main():
     flashcards = Card()
     end = False
+    parser = argparse.ArgumentParser(description='This program is used as a learning aid, it imitates flashcards')
+    parser.add_argument('--import_from')
+    parser.add_argument('--export_to')
+    args = parser.parse_args()
+    if args.import_from:
+        contents = import_cards(args.import_from)
+        if not contents:
+            flashcards.print_message('File not found.\n')
+        else:
+            count = flashcards.load_cards(contents)
+            flashcards.print_message(f'{count} cards have been loaded.\n')
     while not end:
         action = utils.menu(flashcards)
         if action == 'exit':
@@ -124,6 +136,12 @@ def main():
             flashcards.save_log(output_to)
             flashcards.print_message('The log has been saved\n')
     flashcards.print_message('Bye bye!\n')
+    if args.export_to:
+        result = export_cards(args.export_to, flashcards)
+        if not result:
+            flashcards.print_message('Export failed\n')
+        else:
+            flashcards.print_message(f'{len(flashcards.card_dict)} cards have been saved.\n')
 
 
 if __name__ == '__main__':
